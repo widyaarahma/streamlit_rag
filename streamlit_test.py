@@ -22,34 +22,26 @@ def load_model():
 
 model = load_model()
 
+## FAISS & Cosine
 def build_faiss_index_cosine(texts):
-    if not texts: # Handle empty texts list
-        return None, None
+    # 1. Buat embedding
     embeddings = model.encode(texts, convert_to_numpy=True)
+ 
+    # 2. Normalisasi agar inner product = cosine similarity
     embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
-    embeddings = embeddings.astype('float32')
-
-    index = faiss.IndexFlatIP(embeddings.shape[1])
+    embeddings = embeddings.astype('float32')  # FAISS hanya menerima float32
+ 
+    # 3. Buat index FAISS dengan inner product
+    dim = embeddings.shape[1]
+    index = faiss.IndexFlatIP(dim)
     index.add(embeddings)
+ 
     return index, embeddings
 
-def retrieve(query, index, df, top_k=5):
-    if index is None: # Handle case where index wasn't built
-        return pd.DataFrame() # Return empty DataFrame
-    query_embedding = model.encode([query], convert_to_numpy=True)
-    query_embedding = query_embedding / np.linalg.norm(query_embedding)
-    query_embedding = query_embedding.astype('float32')
-
-    if query_embedding.ndim == 1:
-        query_embedding = np.expand_dims(query_embedding, axis=0)
-
-    actual_top_k = min(top_k, index.ntotal)
-    if actual_top_k == 0:
-        return pd.DataFrame()
-
-    D, I = index.search(query_embedding, actual_top_k)
-    return df.iloc[I[0]]
-
+## Retrieval
+def retrieve(query, index, df, top_k=None):
+    return df  
+ 
 ## LLM - Generate Answer
 def generate_answer(query, context, api_key):
     openai.api_key = api_key
