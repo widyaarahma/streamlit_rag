@@ -167,10 +167,11 @@ if uploaded_file:
 else:
     st.info("📂 Silakan upload file CSV terlebih dahulu.")
 
-# ======= HISTORY =========
+# ----------------- HISTORY -----------------
 if st.session_state.history:
     st.subheader("⏰ Riwayat Pertanyaan dan Jawaban")
     for i, (q, a) in enumerate(reversed(st.session_state.history[-5:]), 1):
-        with st.expamder(f"❓ Pertanyaan *{len(st.session_history)-i+i}: {q}"
+        with st.expander(f"❓ Pertanyaan #{i}: {q}"):
+            st.markdown(f"💭 **Jawaban:** {a}")
 
 
