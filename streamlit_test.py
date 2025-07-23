@@ -16,7 +16,6 @@ import torch # Import torch untuk penanganan device yang lebih eksplisit
 @st.cache_resource
 def load_model():
     # Pastikan hanya pakai PyTorch dan set device secara eksplisit
-    # Gunakan 'cuda' jika ada GPU, atau 'cpu' jika tidak
     # device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
     return model
@@ -44,11 +43,9 @@ def retrieve(query, index, df, top_k=5):
     if query_embedding.ndim == 1:
         query_embedding = np.expand_dims(query_embedding, axis=0)
 
-    # Ensure top_k does not exceed the number of items in the index
     actual_top_k = min(top_k, index.ntotal)
-
     if actual_top_k == 0:
-        return pd.DataFrame() # No items to retrieve
+        return pd.DataFrame()
 
     D, I = index.search(query_embedding, actual_top_k)
     return df.iloc[I[0]]
@@ -78,7 +75,6 @@ def transform_data(df, selected_columns):
     df["text"] = df[selected_columns].astype(str).agg(" | ".join, axis=1)
     return df   
 
-
 # ----------------- UI Streamlit -----------------
 
 st.title("🔍 Question Answering from CSV using LLM & FAISS")
@@ -91,6 +87,8 @@ button_api = st.sidebar.button('Aktifkan API Key')
 
 if 'api_key' not in st.session_state:
     st.session_state.api_key = None
+if 'history' not in st.session_state:
+    st.session_state.history = []
 
 if input_api_key and button_api:
     st.session_state.api_key = input_api_key
@@ -114,7 +112,7 @@ if uploaded_file:
     query = st.text_input("❓ Masukan Pertanyaan Anda")
     run_query = st.button("🔎 Jawab Pertanyaan")
 
-    if run_query: # Check for API key inside the try block for better error messaging
+    if run_query:
         try:
             if not st.session_state.api_key:
                 st.warning("🔐 Anda harus mengaktifkan API Key terlebih dahulu.")
@@ -125,7 +123,6 @@ if uploaded_file:
                 st.error("Tidak ada data yang valid untuk dianalisis setelah transformasi kolom. Pastikan kolom yang dipilih berisi data.")
                 st.stop()
 
-            # Pastikan ada teks yang akan di-encode
             if not df_transformed['text'].to_list():
                 st.warning("Tidak ada data teks yang ditemukan untuk membangun indeks FAISS.")
                 st.stop()
@@ -139,29 +136,29 @@ if uploaded_file:
             with st.spinner("🔍 Mencari data relevan..."):
                 results = retrieve(query, index, df_transformed)
                 if results.empty:
-                    context = "" # Empty context if no results
+                    context = ""
                 else:
                     context = "\n".join(results["text"].to_list())
 
                 if not context:
-                    st.warning("Tidak ada konteks yang relevan ditemukan untuk pertanyaan Anda. Mohon sesuaikan pertanyaan atau data Anda.")
-                    # Tidak perlu st.stop() di sini, karena kita masih bisa mencoba generate_answer dengan konteks kosong
-                    # atau langsung memberi tahu pengguna bahwa tidak ada jawaban
+                    st.warning("Tidak ada konteks yang relevan ditemukan untuk pertanyaan Anda.")
                     answer = "Tidak ada informasi yang relevan ditemukan dalam data yang disediakan untuk menjawab pertanyaan Anda."
                     st.subheader("💬 Jawaban:")
                     st.info(answer)
-                    st.stop() # Stop here if no context found to avoid calling LLM with empty context
+                    st.session_state.history.append((query, answer))
+                    st.stop()
 
             with st.spinner("💬 Menghasilkan jawaban..."):
                 answer = generate_answer(query, context, st.session_state.api_key)
 
             st.subheader("💬 Jawaban:")
             st.success(answer)
-        except ValueError as ve: # Catch custom ValueErrors from generate_answer
+            st.session_state.history.append((query, answer))
+        except ValueError as ve:
             st.error(f"❌ Error: {str(ve)}")
         except Exception as e:
             st.error(f"❌ Terjadi error tak terduga: {str(e)}")
-            st.exception(e) # Display full traceback for debugging
+            st.exception(e)
     elif run_query and not st.session_state.api_key:
         st.warning("🔐 Anda harus mengaktifkan API Key terlebih dahulu.")
 else:
@@ -173,5 +170,3 @@ if st.session_state.history:
     for i, (q, a) in enumerate(reversed(st.session_state.history[-5:]), 1):
         with st.expander(f"❓ Pertanyaan #{i}: {q}"):
             st.markdown(f"💭 **Jawaban:** {a}")
-
-
