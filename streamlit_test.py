@@ -160,10 +160,7 @@ if uploaded_file:
             st.subheader("💬 Jawaban:")
             st.success(answer)
 
-            # Tampilkan estimasi token
-            token_count = count_tokens(query + context)
-            st.caption(f"📏 Estimasi Token Input: {token_count} token")
-
+            
             # Simpan ke riwayat
             st.session_state.history.append((query, answer))
 
