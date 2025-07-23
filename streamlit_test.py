@@ -53,47 +53,30 @@ def retrieve(query, index, df, top_k=5):
     D, I = index.search(query_embedding, actual_top_k)
     return df.iloc[I[0]]
 
+## LLM - Generate Answer
 def generate_answer(query, context, api_key):
-    if not api_key:
-        raise ValueError("API Key OpenAI belum diatur.")
-
     openai.api_key = api_key
-    system_message = "Kamu adalah asisten cerdas yang menjawab pertanyaan berdasarkan data yang diberikan. Jawablah dengan ringkas dan fokus pada informasi yang relevan dari data yang disediakan. Jika informasi tidak ditemukan dalam data, nyatakan bahwa Anda tidak dapat menjawab pertanyaan berdasarkan data yang ada."
+    system_message = "Kamu adalah asisten cerdas yang menjawab pertanyaan berdasarkan data yang diberikan."
     user_message = f"""
     Pertanyaan: {query}
-
+ 
     Data yang relevan:
     {context}
     """
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # Menggunakan 'gpt-4' sebagai nama model yang lebih umum
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message}
-            ],
-            temperature=0.7,
-            max_tokens=1000
-        )
-        return response.choices[0]['message']["content"].strip()
-    except openai.error.AuthenticationError:
-        raise ValueError("API Key OpenAI tidak valid. Harap periksa kembali.")
-    except openai.error.RateLimitError:
-        raise ValueError("Batas rate OpenAI API terlampaui. Harap coba lagi nanti.")
-    except openai.error.OpenAIError as e:
-        raise ValueError(f"Terjadi error dari OpenAI API: {e}")
-    except Exception as e:
-        raise ValueError(f"Terjadi error tidak terduga saat menghasilkan jawaban: {e}")
-
-
+    response = openai.ChatCompletion.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message}
+        ],
+        temperature=0.7,
+        max_tokens=1000
+    )
+    return response.choices[0]['message']["content"].strip()
+ 
 def transform_data(df, selected_columns):
-    valid_columns = [col for col in selected_columns if col in df.columns]
-    if not valid_columns:
-        st.warning("Tidak ada kolom yang dipilih ditemukan dalam file CSV. Harap periksa pilihan Anda.")
-        return pd.DataFrame(columns=["text"])
-
-    df["text"] = df[valid_columns].astype(str).agg(" | ".join, axis=1)
-    return df
+    df["text"] = df[selected_columns].astype(str).agg(" | ".join, axis=1)
+    return df   
 
 
 # ----------------- UI Streamlit -----------------
